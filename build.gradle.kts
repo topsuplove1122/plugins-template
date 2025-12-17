@@ -5,18 +5,16 @@ buildscript {
     repositories {
         google()
         mavenCentral()
-        // Aliucords Maven repo which contains our tools and dependencies
         maven("https://maven.aliucord.com/snapshots")
-        // Shitpack which still contains some Aliucord dependencies for now. TODO: Remove
         maven("https://jitpack.io")
     }
 
     dependencies {
-        classpath("com.android.tools.build:gradle:7.0.4")
-        // Aliucord gradle plugin which makes everything work and builds plugins
+        // 稍微升級 Gradle 插件以支援新版 Kotlin
+        classpath("com.android.tools.build:gradle:7.4.2")
         classpath("com.aliucord:gradle:main-SNAPSHOT")
-        // Kotlin support. Remove if you want to use Java
-        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.5.21")
+        // 【關鍵修改】這裡升級到了 1.9.21，解決你的報錯
+        classpath("org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.21")
     }
 }
 
@@ -35,33 +33,34 @@ fun Project.android(configuration: BaseExtension.() -> Unit) = extensions.getByN
 subprojects {
     apply(plugin = "com.android.library")
     apply(plugin = "com.aliucord.gradle")
-    // Remove if using Java
     apply(plugin = "kotlin-android")
 
-    // Fill out with your info
     aliucord {
-        author("DISCORD USERNAME", 123456789L)
+        // 你可以之後再改這裡的名字，目前先保持這樣能跑通就行
+        author("RazerTexZ", 123456789L)
         updateUrl.set("https://raw.githubusercontent.com/USERNAME/REPONAME/builds/updater.json")
         buildUrl.set("https://raw.githubusercontent.com/USERNAME/REPONAME/builds/%s.zip")
     }
 
     android {
-        compileSdkVersion(31)
+        // 配合新版 Android SDK
+        compileSdkVersion(33) 
 
         defaultConfig {
             minSdk = 24
-            targetSdk = 31
+            targetSdk = 33
         }
 
         compileOptions {
-            sourceCompatibility = JavaVersion.VERSION_11
-            targetCompatibility = JavaVersion.VERSION_11
+            // 【關鍵修改】升級到 Java 17
+            sourceCompatibility = JavaVersion.VERSION_17
+            targetCompatibility = JavaVersion.VERSION_17
         }
 
         tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
             kotlinOptions {
-                jvmTarget = "11" // Required
-                // Disables some unnecessary features
+                // 【關鍵修改】升級到 Java 17
+                jvmTarget = "17" 
                 freeCompilerArgs = freeCompilerArgs +
                         "-Xno-call-assertions" +
                         "-Xno-param-assertions" +
@@ -74,7 +73,6 @@ subprojects {
         val discord by configurations
         val implementation by configurations
 
-        // Stubs for all Discord classes
         discord("com.discord:discord:aliucord-SNAPSHOT")
         implementation("com.aliucord:Aliucord:main-SNAPSHOT")
 
