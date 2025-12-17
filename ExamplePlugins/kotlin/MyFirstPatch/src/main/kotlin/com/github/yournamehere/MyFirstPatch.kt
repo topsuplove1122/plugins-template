@@ -1,78 +1,78 @@
-package com.github.yournamehere
+package com.github.topsuplove1122
 
+import androidx.constraintlayout.widget.ConstraintLayout
 import android.content.Context
+import android.widget.ImageView
+import android.view.View
+import android.graphics.Color // 引入顏色庫
+
 import com.aliucord.annotations.AliucordPlugin
-import com.aliucord.entities.MessageEmbedBuilder
 import com.aliucord.entities.Plugin
 import com.aliucord.patcher.*
-import com.aliucord.wrappers.embeds.MessageEmbedWrapper.Companion.title
-import com.discord.models.user.CoreUser
-import com.discord.stores.StoreUserTyping
+import com.aliucord.Utils
+import com.aliucord.utils.DimenUtils
+
 import com.discord.widgets.chat.list.adapter.WidgetChatListAdapterItemMessage
-import com.discord.widgets.chat.list.entries.ChatListEntry
 import com.discord.widgets.chat.list.entries.MessageEntry
+import com.discord.utilities.view.text.SimpleDraweeSpanTextView
 
-// Aliucord Plugin annotation. Must be present on the main class of your plugin
-@AliucordPlugin(requiresRestart = false /* Whether your plugin requires a restart after being installed/updated */)
-// Plugin class. Must extend Plugin and override start and stop
-// Learn more: https://github.com/Aliucord/documentation/blob/main/plugin-dev/1_introduction.md#basic-plugin-structure
-class MyFirstPatch : Plugin() {
-    override fun start(context: Context) {
-        // Patch that adds an embed with message statistics to each message
-        // Patched method is WidgetChatListAdapterItemMessage.onConfigure(int type, ChatListEntry entry)
-        patcher.after<WidgetChatListAdapterItemMessage> /* Class whose method to patch */(
-            "onConfigure", // Method name
-            // Refer to https://kotlinlang.org/docs/reflection.html#class-references
-            // and https://docs.oracle.com/javase/tutorial/reflect/class/classNew.html
-            Int::class.java, // int type
-            ChatListEntry::class.java // ChatListEntry entry
-        ) { param -> // see https://api.xposed.info/reference/de/robv/android/xposed/XC_MethodHook.MethodHookParam.html
-            // Obtain the second argument passed to the method, so the ChatListEntry
-            // Because this is a Message item, it will always be a MessageEntry, so cast it to that
-            val entry = param.args[1] as MessageEntry
+import com.lytefast.flexinput.R
 
-            // You need to be careful when messing with messages, because they may be loading
-            // (user sent a message, and it is currently sending)
-            if (entry.message.isLoading) return@after
+@AliucordPlugin(requiresRestart = true)
+class Main : Plugin() {
+    private val COPY_BTN_ID = 999888777 // 隨意設定一個 ID
 
-            // Now add an embed with the statistics
+    override fun start(ctx: Context) {
+        // 加大一點按鈕尺寸，讓它更明顯
+        val copyBtnSize = DimenUtils.defaultPadding + 10 
+        val copyBtnMargin = DimenUtils.defaultPadding / 4
 
-            // This method may be called multiple times per message, e.g. if it is edited,
-            // so first remove existing embeds
-            entry.message.embeds.removeIf {
-                // MessageEmbed.getTitle() is actually obfuscated, but Aliucord provides extensions for commonly used
-                // obfuscated Discord classes, so just import the MessageEmbed.title extension and boom goodbye obfuscation!
-                it.title == "Message Statistics"
+        val copyIcon = ctx.getDrawable(R.e.ic_copy_24dp)!!.mutate()
+        
+        // 【設定顏色】：這裡設為亮青色 (Cyan)，在深色模式下超級明顯
+        // 如果想要紅色，改成 Color.RED；想要白色，改成 Color.WHITE
+        copyIcon.setTint(Color.CYAN) 
+
+        patcher.after<WidgetChatListAdapterItemMessage>("processMessageText", SimpleDraweeSpanTextView::class.java, MessageEntry::class.java) {
+            val textView = it.args[0] as SimpleDraweeSpanTextView
+            val messageEntry = it.args[1] as MessageEntry
+            val root = it.thisObject.itemView as ConstraintLayout
+
+            var copyBtn = root.findViewById<ImageView>(COPY_BTN_ID)
+
+            if (copyBtn == null) {
+                copyBtn = ImageView(root.context).apply {
+                    id = COPY_BTN_ID
+                    setImageDrawable(copyIcon)
+                    
+                    // 【關鍵修改】：移除了 alpha 設定，現在是 100% 不透明
+                    // alpha = 0.6f  <-- 這行刪掉了
+                    
+                    // 設定背景色 (可選)：如果你想要按鈕後面有個黑色底框，把下面這行註解打開
+                    // setBackgroundColor(Color.parseColor("#88000000")) 
+
+                    layoutParams = ConstraintLayout.LayoutParams(copyBtnSize, copyBtnSize).apply {
+                        topToTop = textView.id
+                        endToEnd = textView.id
+                        topMargin = copyBtnMargin
+                        rightMargin = copyBtnMargin
+                    }
+                    
+                    // 增加一點 padding 讓圖示在按鈕框框內置中，不會貼邊
+                    setPadding(5, 5, 5, 5)
+                }
+                root.addView(copyBtn)
             }
 
-            // Creating embeds is a pain, so Aliucord provides a convenient builder
-            MessageEmbedBuilder().run {
-                setTitle("Message Statistics")
-                addField("Length", (entry.message.content?.length ?: 0).toString(), false)
-                addField("ID", entry.message.id.toString(), false)
+            copyBtn.visibility = View.VISIBLE
 
-                entry.message.embeds.add(build())
+            copyBtn.setOnClickListener {
+                val content = messageEntry.message.content
+                Utils.setClipboard(content, content)
+                Utils.showToast("已複製！")
             }
         }
-
-        // Patch that renames Juby to JoobJoob
-        patcher.before<CoreUser>("getUsername") { param -> // see https://api.xposed.info/reference/de/robv/android/xposed/XC_MethodHook.MethodHookParam.html
-            // in before, after and instead patches, `this` refers to the instance of the class
-            // the patched method is on, so the CoreUser instance here
-            if (id == 925141667688878090) {
-                // setResult() in before patches skips original method invocation
-                param.result = "JoobJoob"
-            }
-        }
-
-        // Patch that hides your typing status by replacing the method and simply doing nothing
-        patcher.instead<StoreUserTyping>(
-            "setUserTyping", Long::class.java // long channelId
-        ) { null }
     }
 
-    override fun stop(context: Context) {
-        // Remove all patches
-        patcher.unpatchAll()
-    }
+    override fun stop(ctx: Context) = patcher.unpatchAll()
 }
