@@ -4,7 +4,7 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import android.content.Context
 import android.widget.ImageView
 import android.view.View
-import android.graphics.Color // 引入顏色庫
+import android.graphics.Color
 
 import com.aliucord.annotations.AliucordPlugin
 import com.aliucord.entities.Plugin
